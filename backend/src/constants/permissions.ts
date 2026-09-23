@@ -24,5 +24,12 @@ export const permissions = {
     create: [UserRole.OWNER],
     update: [UserRole.OWNER, UserRole.MANAGER],
     delete: [UserRole.OWNER]
+  },
+  transfers: {
+    read: [UserRole.OWNER, UserRole.MANAGER, UserRole.EMPLOYEE],
+    create: [UserRole.MANAGER],
+    approve: [UserRole.OWNER],
+    reject: [UserRole.OWNER],
+    withdraw: [UserRole.MANAGER, UserRole.EMPLOYEE]
   }
 } as const;

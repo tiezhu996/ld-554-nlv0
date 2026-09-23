@@ -1,5 +1,5 @@
 import { Op, type WhereOptions } from 'sequelize';
-import { Employee, Shift, Store, Transaction } from '../models/index.js';
+import { Employee, Shift, Store, Transaction, TransferRequest, User } from '../models/index.js';
 import { getPagination } from '../utils/pagination.js';
 import { storeScope } from './scope.service.js';
 import type { AuthUser } from '../types/request.js';
@@ -22,16 +22,44 @@ export async function listEmployees(query: Record<string, unknown>, user?: AuthU
 }
 
 export async function getEmployee(id: number) {
-  return Employee.findByPk(id, { include: [Store, Shift, { model: Transaction, as: 'employeeTransactions' }] });
+  return Employee.findByPk(id, {
+    include: [
+      Store,
+      Shift,
+      { model: Transaction, as: 'employeeTransactions' },
+      {
+        model: TransferRequest,
+        as: 'transferRequests',
+        include: [
+          { model: Store, as: 'targetStore' },
+          { model: User, as: 'applicant', include: [{ association: 'profile' }] },
+          { model: User, as: 'reviewer', include: [{ association: 'profile' }] }
+        ]
+      }
+    ],
+    order: [[{ model: TransferRequest, as: 'transferRequests' }, 'id', 'DESC']]
+  });
 }
 
 export async function createEmployee(payload: Record<string, unknown>) {
   return Employee.create({ ...payload, employeeNo: buildEmployeeNo() } as never);
 }
 
+const TRANSFER_FIELDS = ['department', 'position', 'storeId'] as const;
+
 export async function updateEmployee(id: number, payload: Record<string, unknown>) {
   const employee = await Employee.findByPk(id);
   if (!employee) throw Object.assign(new Error('员工不存在'), { status: 404 });
+  // 部门、职位、所属门店属于调岗信息，只能通过调岗申请审批通过后更新，禁止直接修改绕过审批
+  const touchedTransferFields = TRANSFER_FIELDS.filter((field) => {
+    if (payload[field] === undefined) return false;
+    const current = employee.getDataValue(field);
+    const next = field === 'storeId' ? (payload[field] === null || payload[field] === '' ? null : Number(payload[field])) : String(payload[field]);
+    return next !== current;
+  });
+  if (touchedTransferFields.length) {
+    throw Object.assign(new Error(`调岗信息（${touchedTransferFields.join('、')}）必须通过调岗申请审批后变更`), { status: 403 });
+  }
   return employee.update(payload);
 }
 

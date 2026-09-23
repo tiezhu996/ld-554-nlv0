@@ -23,8 +23,11 @@
           <el-table-column label="状态">
             <template #default="{ row }"><el-tag>{{ EmployeeStatusLabel[row.status as keyof typeof EmployeeStatusLabel] }}</el-tag></template>
           </el-table-column>
-          <el-table-column label="操作">
-            <template #default="{ row }"><el-button text @click="selected = row; detailVisible = true">详情</el-button></template>
+          <el-table-column label="操作" width="140">
+            <template #default="{ row }">
+              <el-button text @click="selected = row; detailVisible = true">详情</el-button>
+              <el-button v-permission="['MANAGER']" text type="primary" @click="openTransfer(row)">调岗</el-button>
+            </template>
           </el-table-column>
         </el-table>
       </div>
@@ -33,8 +36,9 @@
         <el-tree :data="departmentTree" default-expand-all />
       </div>
     </div>
-    <el-drawer v-model="detailVisible" title="员工详情"><EmployeeDetail :employee="selected" /></el-drawer>
+    <el-drawer v-model="detailVisible" title="员工详情" size="460px"><EmployeeDetail :employee="selected" /></el-drawer>
     <el-drawer v-model="formVisible" title="入职登记"><EmployeeForm @submit="save" /></el-drawer>
+    <TransferDialog v-model="transferVisible" :employee="transferEmployee" @submitted="load" />
   </AppLayout>
 </template>
 
@@ -46,6 +50,7 @@ import EmployeeAvatar from '@/components/common/EmployeeAvatar.vue';
 import StoreSelector from '@/components/common/StoreSelector.vue';
 import EmployeeDetail from './EmployeeDetail.vue';
 import EmployeeForm from './EmployeeForm.vue';
+import TransferDialog from '@/components/employee/TransferDialog.vue';
 import { EmployeeStatusLabel } from '@/constants/enums';
 import { useEmployeeStore } from '@/stores/employeeStore';
 import { createEmployee } from '@/api/employee';
@@ -56,6 +61,13 @@ const filters = reactive<Record<string, unknown>>({});
 const detailVisible = ref(false);
 const formVisible = ref(false);
 const selected = ref<Employee | null>(null);
+const transferVisible = ref(false);
+const transferEmployee = ref<Employee | null>(null);
+
+function openTransfer(row: Employee) {
+  transferEmployee.value = row;
+  transferVisible.value = true;
+}
 const departmentTree = computed(() => {
   const groups = employees.list.reduce<Record<string, Employee[]>>((acc, item) => {
     acc[item.department] ??= [];
