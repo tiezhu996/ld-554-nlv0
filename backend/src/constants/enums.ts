@@ -25,6 +25,13 @@ export const TransactionCategory = {
   OTHER: 'OTHER'
 } as const;
 
+export const TransferStatus = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  WITHDRAWN: 'WITHDRAWN'
+} as const;
+
 export const UserRole = {
   OWNER: 'OWNER',
   MANAGER: 'MANAGER',
@@ -35,4 +42,5 @@ export type EmployeeStatusValue = (typeof EmployeeStatus)[keyof typeof EmployeeS
 export type ShiftTypeValue = (typeof ShiftType)[keyof typeof ShiftType];
 export type TransactionTypeValue = (typeof TransactionType)[keyof typeof TransactionType];
 export type TransactionCategoryValue = (typeof TransactionCategory)[keyof typeof TransactionCategory];
+export type TransferStatusValue = (typeof TransferStatus)[keyof typeof TransferStatus];
 export type UserRoleValue = (typeof UserRole)[keyof typeof UserRole];

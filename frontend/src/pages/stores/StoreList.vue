@@ -24,11 +24,18 @@
       <div class="panel"><StoreCompare :stores="stores.list" /></div>
       <div class="panel">
         <h2>人员配置</h2>
-        <EmployeeAvatar name="周然" employee-no="EMP-20260201-002" />
-        <el-button text>调岗</el-button>
+        <el-select v-model="staffStoreId" placeholder="选择门店" class="staff-select" @change="loadStaff">
+          <el-option v-for="store in stores.list" :key="store.id" :label="store.name" :value="store.id" />
+        </el-select>
+        <el-empty v-if="!staff.length" description="该门店暂无员工" :image-size="60" />
+        <div v-for="member in staff" :key="member.id" class="staff-row">
+          <EmployeeAvatar :name="member.name" :employee-no="member.employeeNo" />
+          <el-button v-permission="['OWNER','MANAGER']" text type="primary" @click="openTransfer(member)">调岗</el-button>
+        </div>
       </div>
     </div>
     <el-drawer v-model="detailVisible" title="门店详情"><StoreDetail :store="selected" /></el-drawer>
+    <TransferRequestDialog v-model="transferVisible" :employee="transferEmployee" @submitted="loadStaff" />
   </AppLayout>
 </template>
 
@@ -38,8 +45,11 @@ import AppLayout from '@/components/layout/AppLayout.vue';
 import EmployeeAvatar from '@/components/common/EmployeeAvatar.vue';
 import StoreCompare from './StoreCompare.vue';
 import StoreDetail from './StoreDetail.vue';
+import TransferRequestDialog from '@/components/common/TransferRequestDialog.vue';
 import { useStoreStore } from '@/stores/storeStore';
+import { fetchEmployees } from '@/api/employee';
 import type { Store } from '@/types/store';
+import type { Employee } from '@/types/employee';
 
 const stores = useStoreStore();
 const mode = ref('卡片');
@@ -47,7 +57,32 @@ const detailVisible = ref(false);
 const selected = ref<Store | null>(null);
 const statusLabel = { OPEN: '营业中', RENOVATING: '装修中', CLOSED: '已关闭' };
 
-onMounted(() => stores.load());
+const staffStoreId = ref<number>();
+const staff = ref<Employee[]>([]);
+const transferVisible = ref(false);
+const transferEmployee = ref<Employee | null>(null);
+
+async function loadStaff() {
+  if (!staffStoreId.value) {
+    staff.value = [];
+    return;
+  }
+  const response = (await fetchEmployees({ storeId: staffStoreId.value, pageSize: 100 })) as {
+    data: { list: Employee[] };
+  };
+  staff.value = response.data.list;
+}
+
+function openTransfer(member: Employee) {
+  transferEmployee.value = member;
+  transferVisible.value = true;
+}
+
+onMounted(async () => {
+  await stores.load();
+  staffStoreId.value = stores.list[0]?.id;
+  await loadStaff();
+});
 </script>
 
 <style scoped>
@@ -71,5 +106,17 @@ onMounted(() => stores.load());
 
 .lower {
   margin-top: 18px;
+}
+
+.staff-select {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.staff-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
 }
 </style>

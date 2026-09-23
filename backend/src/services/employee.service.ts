@@ -1,7 +1,8 @@
 import { Op, type WhereOptions } from 'sequelize';
-import { Employee, Shift, Store, Transaction } from '../models/index.js';
+import { Employee, Shift, Store, Transaction, TransferRequest, User } from '../models/index.js';
 import { getPagination } from '../utils/pagination.js';
 import { storeScope } from './scope.service.js';
+import { assertNoBypassFields } from './transfer.service.js';
 import type { AuthUser } from '../types/request.js';
 
 function buildEmployeeNo() {
@@ -22,7 +23,23 @@ export async function listEmployees(query: Record<string, unknown>, user?: AuthU
 }
 
 export async function getEmployee(id: number) {
-  return Employee.findByPk(id, { include: [Store, Shift, { model: Transaction, as: 'employeeTransactions' }] });
+  return Employee.findByPk(id, {
+    include: [
+      Store,
+      Shift,
+      { model: Transaction, as: 'employeeTransactions' },
+      {
+        model: TransferRequest,
+        as: 'transferRequests',
+        include: [
+          { model: Store, as: 'targetStore', attributes: ['id', 'name'] },
+          { model: User, as: 'applicant', attributes: ['id', 'username'] },
+          { model: User, as: 'approver', attributes: ['id', 'username'] }
+        ],
+        order: [['id', 'DESC']]
+      }
+    ]
+  });
 }
 
 export async function createEmployee(payload: Record<string, unknown>) {
@@ -32,6 +49,7 @@ export async function createEmployee(payload: Record<string, unknown>) {
 export async function updateEmployee(id: number, payload: Record<string, unknown>) {
   const employee = await Employee.findByPk(id);
   if (!employee) throw Object.assign(new Error('员工不存在'), { status: 404 });
+  assertNoBypassFields(payload);
   return employee.update(payload);
 }
 

@@ -58,4 +58,26 @@ export const UserRole = {
   EMPLOYEE: 'EMPLOYEE'
 } as const;
 
+export const TransferStatus = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  WITHDRAWN: 'WITHDRAWN'
+} as const;
+
+export const TransferStatusLabel = {
+  [TransferStatus.PENDING]: '待审批',
+  [TransferStatus.APPROVED]: '已通过',
+  [TransferStatus.REJECTED]: '已驳回',
+  [TransferStatus.WITHDRAWN]: '已撤回'
+} as const;
+
+export const TransferStatusTagType = {
+  [TransferStatus.PENDING]: 'warning',
+  [TransferStatus.APPROVED]: 'success',
+  [TransferStatus.REJECTED]: 'danger',
+  [TransferStatus.WITHDRAWN]: 'info'
+} as const;
+
 export type UserRoleValue = (typeof UserRole)[keyof typeof UserRole];
+export type TransferStatusValue = (typeof TransferStatus)[keyof typeof TransferStatus];

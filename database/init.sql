@@ -96,3 +96,28 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_audit_operator FOREIGN KEY (operator_id) REFERENCES users(id) ON DELETE SET NULL
 );
+
+CREATE TABLE IF NOT EXISTS transfer_requests (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  employee_id INT NOT NULL,
+  target_department VARCHAR(60) NOT NULL,
+  target_position VARCHAR(60) NOT NULL,
+  target_store_id INT NOT NULL,
+  effective_date DATE NOT NULL,
+  status ENUM('PENDING','APPROVED','REJECTED','WITHDRAWN') NOT NULL DEFAULT 'PENDING',
+  applicant_id INT NOT NULL,
+  approver_id INT NULL,
+  approved_at DATETIME NULL,
+  reject_reason VARCHAR(255) NULL,
+  processed_at DATETIME NULL,
+  remark VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  pending_employee_id INT GENERATED ALWAYS AS (CASE WHEN status = 'PENDING' THEN employee_id ELSE NULL END) STORED,
+  UNIQUE KEY uk_transfer_pending_employee (pending_employee_id),
+  KEY idx_transfer_employee_status (employee_id, status),
+  CONSTRAINT fk_transfer_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+  CONSTRAINT fk_transfer_target_store FOREIGN KEY (target_store_id) REFERENCES stores(id) ON DELETE CASCADE,
+  CONSTRAINT fk_transfer_applicant FOREIGN KEY (applicant_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_transfer_approver FOREIGN KEY (approver_id) REFERENCES users(id) ON DELETE SET NULL
+);

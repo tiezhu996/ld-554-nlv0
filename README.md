@@ -5,7 +5,7 @@ BizStarter 面向创业公司与小微企业，覆盖员工管理、排班调度
 ## 功能介绍
 
 - 管理仪表盘：收入支出对比、出勤率、门店营收 TOP、待办事项和快速入口。
-- 员工管理：花名册筛选、组织树、入职登记、详情抽屉、转正/调岗/离职入口基础结构。
+- 员工管理：花名册筛选、组织树、入职登记、详情抽屉、转正/调岗/离职入口基础结构、门店人员调岗申请审批流。
 - 排班管理：周视图、自动排班、换班申请流程、月度工时统计。
 - 财务管理：收支记录、记账表单、分类统计、利润报表导出。
 - 门店管理：卡片/表格视图、业绩对比、人员配置、门店详情。
@@ -97,6 +97,22 @@ database/   init.sql 和 seed.sql
 | TransactionType | INCOME / EXPENSE | `frontend/src/constants/enums.ts`、`frontend/src/pages/finance/FinanceList.vue`、`frontend/src/pages/finance/FinanceForm.vue`、`frontend/src/stores/transactionStore.ts`、`frontend/src/pages/Dashboard.vue`、`backend/src/constants/enums.ts`、`backend/src/models/transaction.model.ts`、`backend/src/services/dashboard.service.ts`、`database/init.sql`、`database/seed.sql` |
 | TransactionCategory | SALARY / PURCHASE / RENT / UTILITY / SALES / OTHER | `frontend/src/constants/enums.ts`、`frontend/src/pages/finance/FinanceList.vue`、`frontend/src/pages/finance/FinanceForm.vue`、`frontend/src/stores/transactionStore.ts`、`backend/src/constants/enums.ts`、`backend/src/models/transaction.model.ts`、`database/init.sql`、`database/seed.sql` |
 | UserRole | OWNER / MANAGER / EMPLOYEE | `frontend/src/constants/enums.ts`、`frontend/src/hooks/usePermission.ts`、`frontend/src/router/guards.ts`、`frontend/src/router/routes/*.ts`、`frontend/src/main.ts`、`backend/src/constants/enums.ts`、`backend/src/constants/permissions.ts`、`backend/src/models/user.model.ts`、`backend/src/models/employee.model.ts`、`backend/src/middlewares/rbac.middleware.ts`、`backend/src/services/scope.service.ts`、`backend/src/routes/*.routes.ts`、`database/init.sql`、`database/seed.sql` |
+| TransferStatus | PENDING / APPROVED / REJECTED / WITHDRAWN | `frontend/src/constants/enums.ts`、`frontend/src/types/transfer.d.ts`、`frontend/src/components/common/TransferRequestDialog.vue`、`frontend/src/components/common/TransferProgress.vue`、`frontend/src/pages/employees/TransferApproval.vue`、`backend/src/constants/enums.ts`、`backend/src/constants/permissions.ts`、`backend/src/models/transfer-request.model.ts`、`backend/src/services/transfer.service.ts`、`backend/src/controllers/transfer.controller.ts`、`backend/src/routes/transfer.routes.ts`、`database/init.sql`、`database/seed.sql` |
+
+## 门店人员调岗流程
+
+门店人员的调岗统一走「调岗」申请入口（员工列表操作列、门店人员配置共用 `TransferRequestDialog`），不再支持直接修改员工门店：
+
+1. **发起申请**：店长（Manager）/老板（Owner）点击「调岗」，填写目标部门、目标职位、接收门店、生效日期。店长只能为本门店员工发起。
+2. **唯一待处理**：同一员工存在 `PENDING` 申请时禁止再次提交。数据库通过 `transfer_requests.pending_employee_id` 生成列 + 唯一索引兜底，服务层在事务内对员工行加锁后二次检查，防止并发重复提交。
+3. **老板确认**：仅 Owner 可审批。审批与撤回在同一事务内对申请行加 `SELECT ... FOR UPDATE`，并以 `WHERE status = 'PENDING'` 作为状态流转条件；两个操作同时到达时只有先提交事务的一个生效，另一个返回「已处理，不能重复操作」。
+4. **档案与排班变更（审批通过时同一事务内完成）**：
+   - 通过后员工的部门、职位、所属门店才更新；
+   - 生效日期**当天及以后**且**尚未打卡**（`status != 'CHECKED_IN'`）的排班 `store_id` 转至接收门店；
+   - 已打卡、或早于生效日期的排班保留原门店。
+5. **撤回**：申请人可撤回自己的待处理申请，Owner 可撤回任意待处理申请。
+6. **进度可查**：员工详情抽屉内嵌 `TransferProgress` 时间线，展示申请人、目标门店/部门/职位、生效日期、处理结果（通过/驳回原因/撤回）与处理人；`/employees/transfers` 提供全量审批列表。
+7. **权限不绕过**：`PUT /api/employees/:id` 一旦携带 `storeId` 即被拒绝（`assertNoBypassFields`），门店变更只能通过调岗审批完成；申请、审批、撤回接口均有 `requireRoles` 与审计中间件保护。
 
 ## 全局异常处理
 
@@ -104,7 +120,7 @@ database/   init.sql 和 seed.sql
 
 ## 操作日志说明
 
-后端 `audit.middleware.ts` 会审计财务新增/修改/删除、员工新增/修改/删除、排班创建/自动排班/修改、门店新增/修改/删除等关键操作，记录到 `audit_logs` 表，字段包含 `operatorId`、`action`、`target`、`oldValue`、`newValue`、`ip`、`timestamp`。
+后端 `audit.middleware.ts` 会审计财务新增/修改/删除、员工新增/修改/删除、排班创建/自动排班/修改、门店新增/修改/删除，以及调岗申请提交（`CREATE_TRANSFER_REQUEST`）、审批（`REVIEW_TRANSFER_REQUEST`）、撤回（`WITHDRAW_TRANSFER_REQUEST`）等关键操作，记录到 `audit_logs` 表，字段包含 `operatorId`、`action`、`target`、`oldValue`、`newValue`、`ip`、`timestamp`。
 
 ## RBAC 权限矩阵
 
@@ -115,6 +131,7 @@ database/   init.sql 和 seed.sql
 | 排班 | 增删改查/自动排班 | 新增/查看/修改门店范围 | 查看个人排班 |
 | 财务 | 增删改查/审核 | 新增/查看门店范围 | 无 |
 | 门店 | 增删改查 | 查看/修改负责门店 | 无 |
+| 调岗申请 | 发起/查看/审批/撤回 | 发起/查看/撤回本人申请 | 查看本人申请进度 |
 | 系统设置 | 全部 | 无 | 无 |
 
 ## License

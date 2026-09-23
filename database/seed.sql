@@ -28,7 +28,10 @@ INSERT INTO permissions (role, module, action) VALUES
 ('OWNER','transactions','create'),('OWNER','transactions','read'),('OWNER','transactions','update'),('OWNER','transactions','delete'),
 ('MANAGER','transactions','create'),('MANAGER','transactions','read'),
 ('OWNER','stores','create'),('OWNER','stores','read'),('OWNER','stores','update'),('OWNER','stores','delete'),
-('MANAGER','stores','read'),('MANAGER','stores','update');
+('MANAGER','stores','read'),('MANAGER','stores','update'),
+('OWNER','transfers','read'),('OWNER','transfers','create'),('OWNER','transfers','approve'),('OWNER','transfers','withdraw'),
+('MANAGER','transfers','read'),('MANAGER','transfers','create'),('MANAGER','transfers','withdraw'),
+('EMPLOYEE','transfers','read');
 
 INSERT INTO shifts (employee_id, date, shift_type, start_time, end_time, store_id, status) VALUES
 (2, CURDATE(), 'MORNING', '08:30:00', '13:30:00', 1, 'CHECKED_IN'),
